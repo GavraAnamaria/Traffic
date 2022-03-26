@@ -1,0 +1,202 @@
+formulas(assumptions).
+
+%---------------------------------------------------[ IESIRI ]--------------------------------------------------------------------
+
+%PRIORITATE
+prioritate1 | prioritate2 | prioritate3 | prioritate4 | prioritate_tr.
+%o singura masina are prioritate
+prioritate1 -> -(prioritate2 | prioritate3 | prioritate4 | prioritate_tr).
+prioritate2 -> -(prioritate1 | prioritate3 | prioritate4 | prioritate_tr).
+prioritate3 -> -(prioritate2 | prioritate1 | prioritate4 | prioritate_tr).
+prioritate4 -> -(prioritate2 | prioritate3 | prioritate1 | prioritate_tr).
+prioritate_tr -> -(prioritate2 | prioritate3 | prioritate1 | prioritate4).
+
+%banda pe care trebuie sa se incadreze masina
+banda1 -> -(banda2 | banda3).
+banda2 -> -(banda1 | banda3).
+banda3 -> -(banda1 | banda2).
+(banda1 | banda2 | banda3) <-> incadrare_benzi | giratoriu.
+-trei_benzi -> -banda3 . %doua benzi
+giratoriu -> -trei_benzi.
+trei_benzi -> incadrare_benzi.
+%-----------------------------------------------------------------------------------------------------------------------------
+
+
+%---------------------------------------------------[ INTRARI ]--------------------------------------------------------------------
+
+
+%------------------------------------------------------------- TIP INTERSECTIE
+intersectieT | intersectieX | giratoriu | incadrare_benzi.
+intersectieT -> -(intersectieX | giratoriu | incadrare_benzi).
+intersectieX -> -(intersectieT | giratoriu | incadrare_benzi).
+giratoriu -> -(intersectieT | intersectieX | incadrare_benzi).
+incadrare_benzi -> -(intersectieT | intersectieX | giratoriu).
+%------------------------------------------------------------- TIPURI DRUM
+
+
+
+%------------------------------------------------------------- DRUM PRIORITAR
+%numerotare in sensul acelor de ceasornic
+nedirijata <-> -(drum_prioritar_inainte | drum_prioritar_stanga). 
+-(drum_prioritar_stanga & drum_prioritar_inainte). % nu putem avea doua drumuri prioritare
+drum_prioritar_inainte | drum_prioritar_stanga | nedirijata -> (intersectieT | intersectieX). 
+
+
+%-------------------------------------------------------------  MASINI
+
+%2<= nr masini <= 4
+(masina1 & masina2) | (masina1 & masina3) | (masina1 & masina4) | (masina2 & masina3) | (masina2 & masina4) | (masina3 & masina4). 
+(intersectieT | incadrare_benzi) -> -masina4.  %in intersectia T / incadrare => maxim 3 masini
+%o masina nu poate avea prioritate daca nu exista
+-(prioritate1 & -masina1).
+-(prioritate2 & -masina2).
+-(prioritate3 & -masina3).
+-(prioritate4 & -masina4).
+-(prioritate_tr & -tramvai).
+
+%------------------------------------------------------------- DIRECTIE MASINI
+% pot sa fie selectate simultan ambele directii doar pentru intoarcerea in sens giratoriu
+-giratoriu & masina1_st -> -masina1_dr.
+-giratoriu & masina2_st -> -masina2_dr.
+-giratoriu & masina3_st -> -masina3_dr.
+-giratoriu & masina4_st -> -masina4_dr.
+
+(masina1_st | masina1_dr | masina1_inainte) <-> masina1.
+(masina2_st | masina2_dr | masina2_inainte) <-> masina2.
+(masina3_st | masina3_dr | masina3_inainte) <-> masina3.
+(masina4_st | masina4_dr | masina4_inainte) <-> masina4.
+
+masina1_inainte -> -(masina1_st | masina1_dr).
+masina2_inainte -> -(masina2_st | masina2_dr).
+masina3_inainte -> -(masina3_st | masina3_dr).
+masina4_inainte -> -(masina4_st | masina4_dr).
+%in intersectia t masina 1 nu poate merge in stanga, masina 2 inainte sau masina 3 in stanga
+intersectieT -> -(masina1_dr | masina3_st | masina2_inainte). 
+
+
+%------------------------------------------------------------- REGIM PRIORITAR
+%una din masini = ambulanta/ pompieri/ politie in interventie
+regim_prioritar1 & interventie -> prioritate1.
+regim_prioritar2 & interventie -> prioritate2.
+regim_prioritar3 & interventie-> prioritate3.
+regim_prioritar4 & interventie -> prioritate4.
+(regim_prioritar1 | regim_prioritar2 | regim_prioritar3 | regim_prioritar4) & interventie <-> regimP.
+
+%------------------------------------------------------------- TRAMVAI
+%are prioritate cand nu vireaza stanga /  avem ambulanta
+(tramvai & (-(tr_stanga | regimP))) -> prioritate_tr.
+tr_stanga -> -prioritate_tr.  
+(-(regimP | prioritate_tr)) <-> ntr_regimP.
+
+%-------------------------------------------------------------[ CAZURI ]--------------------------------------------------------------------
+
+
+% ------------------------------------------------------------- INCADRARE BENZI(masina2)
+%---> masina merge inainte/stanga(2 benzi)
+incadrare_benzi & (-trei_benzi) & (-masina2_dr) -> (banda2 & prioritate2). 
+
+%---> masina merge inainte(3 benzi) => banda nu trebuie schimbata/sa acorde prioritate
+trei_benzi & masina2_inainte -> (banda2 & prioritate2). 
+
+%---> masina merge la stanga(3 benzi)
+trei_benzi & masina2_st -> banda3.
+%a) banda3 este ocupata
+banda3 & masina3 -> prioritate3.
+%b) banda3 este libera
+banda3 & (-masina3) -> prioritate2.
+
+%---> masina merge la dreapta
+incadrare_benzi & masina2_dr -> banda1.
+%a) banda1 este ocupata => acorda prioritate masinii1
+incadrare_benzi & banda1 & masina1 -> prioritate1.
+%b) banda1 este libera
+incadrare_benzi & banda1 & (-masina1) ->  prioritate2.
+
+
+%---------------------------------------------------------------- SENS GIRATORIU
+%prioritate
+%masina care vine din stanga are prioritate
+giratoriu & masina4_st & (-masina1)-> (prioritate4 & banda2).
+giratoriu & masina4 & (-(masina1 | masina4_st)) -> (prioritate4 & banda1).
+giratoriu & masina1 -> -prioritate4.
+giratoriu & masina3_st & (-masina4) -> (prioritate3 & banda2).
+giratoriu & masina3 & (-(masina4 | masina3_st)) -> (prioritate3 & banda1).
+giratoriu & masina2_st & (-masina3) & (-prioritate4)-> (prioritate2 & banda2).  
+giratoriu & masina2 & (-(masina3 | masina2_st | prioritate4)) -> (prioritate2 & banda1).
+giratoriu & masina1_st & (-masina2) & (-masina3 | masina3 & masina4) -> (prioritate1 & banda2). %masina4 nu poate avea prioritate daca exista m1 => verificam prioritatea doar la m3
+giratoriu & masina1 & (-masina3 | masina3 & masina4) & (-(masina2 | masina1_st)) -> (prioritate1 & banda1).
+
+
+%---------------------------------------------------------------- INTERSECTII
+%------------------------------------------------------a) Dirijate
+% masina merge pe drumul prioritar
+%masina 1 - prioritate indiferent de directie cand drumul prioritar = la stanga.
+drum_prioritar_stanga & masina1 & ntr_regimP -> prioritate1.   
+%masina 2 - prioritate cand nu merge la stanga
+drum_prioritar_stanga & masina2 & -masina1 & ntr_regimP -> prioritate2.  
+%drum prioritar inaine - dintre masinile 1 si 3 are prioritate cea care nu merge la stanga
+drum_prioritar_inainte & masina1 & (-masina1_st | -masina3) & ntr_regimP -> prioritate1.
+drum_prioritar_inainte & masina3 & (masina1_st | -masina1) & ntr_regimP -> prioritate3.
+
+% INTERSECTIE T
+%drum prioritar st
+intersectieT & drum_prioritar_stanga & masina2_st & -masina1 & ntr_regimP -> prioritate2.
+%drum prioritar inainte
+intersectieT & drum_prioritar_inainte & masina1_st & -masina3 & ntr_regimP -> prioritate1.
+
+% INTERSECTIE +
+%drum prioritar st
+intersectieX & drum_prioritar_stanga & masina3 & -masina1 & -masina2 & ntr_regimP -> prioritate3.
+%drum prioritar inainte
+intersectieX & drum_prioritar_inainte & masina2 & (-(masina2_st | masina1 | masina3 )) & ntr_regimP -> prioritate2.
+intersectieX & drum_prioritar_inainte & masina4 & (-masina2 | masina2_st) & -(masina1 | masina3) & ntr_regimP -> prioritate4.
+
+%------------------------------------------------------b) Nedirijate
+intersectieX & nedirijata & masina1 & (masina2 | -masina1_st) & -masina4 & ntr_regimP -> prioritate1.
+intersectieT & nedirijata & masina1 & -masina3 & ntr_regimP -> prioritate1.
+nedirijata & masina2 & -masina1 & ntr_regimP -> prioritate2.
+nedirijata & masina3 & -masina2 & ntr_regimP -> prioritate3.
+nedirijata & masina4 & -masina3 & ntr_regimP -> prioritate4.
+
+ %cand sunt cel putin trei vehicule intr-o intersectie, vehiculul care vireaza la dreapta va trece primul 
+nedirijata & ((masina1 & masina2 & masina3) | (masina1 & masina3 & masina4) | (masina1 & masina2 & masina4) | (masina2 & masina3 & masina4)) & ntr_regimP -> trei_masini.
+trei_masini & masina1_dr -> prioritate1.
+trei_masini & masina2_dr -> prioritate2.
+trei_masini & masina3_dr -> prioritate3.
+trei_masini & masina4_dr -> prioritate4.
+
+ % avem doar masinile 1 si 3 sau 2 si 4 nu au prioritate si masina 1/3 o ia la stanga
+nedirijata & masina1_st & -masina2_dr & masina3 & -masina3_st & -masina4_dr & ntr_regimP -> prioritate3.
+nedirijata & masina3_st & -masina2_dr & masina1 & -masina1_st & -masina4_dr & ntr_regimP -> prioritate1.
+% avem doar masinile 2 si 4, sau 1 si 3 nu au prioritate, si masina 2/4 o ia la stanga
+nedirijata & masina2_st & masina4 & -masina4_st & -masina1_dr & -masina3_dr & ntr_regimP-> prioritate4. 
+nedirijata & masina4_st & masina2 & -masina2_st & -masina1_dr & -masina3_dr & ntr_regimP-> prioritate2. 
+
+%-------------------------------------------------------------[ TESTE ]--------------------------------------------------------------------
+%incadrare doua benzi
+test1 -> incadrare_benzi & -trei_benzi & masina1 & masina2_dr. %banda1&prioritate1
+%incadrare 3 benzi
+test2 -> incadrare_benzi & trei_benzi & -masina3 & masina2_st. %banda3&prioritate2
+%giratoriu
+test3 -> giratoriu & masina1_st & -masina3 & (-masina2) & masina4_inainte . %banda2 & prioritate1
+%regim prioritar
+test4 -> intersectieX & nedirijata & -tramvai & -masina1 & masina2_st & masina4_st & masina3_inainte & regim_prioritar3 & interventie. %prioritate3 => prioritate2 => prioritate4
+%tramvai
+test5 -> intersectieX & nedirijata & tramvai & -tr_stanga & -regimP & masina1_st & -masina2 & -masina3 & masina4_inainte. %prioritate_tr => prioritate4 => prioritate1 
+%intersectie T nedirijata
+test6 -> intersectieT & nedirijata & ntr_regimP & masina1_st & masina2_st & masina3_inainte. %prioritate3 => prioritate1 => prioritate2 
+%intersectie + nedirijata
+test7 -> intersectieX & nedirijata & ntr_regimP & masina1_inainte & masina2_st & masina3_inainte & masina4_dr. %prioritate4 => prioritate1 => prioritate2 => prioritate3
+
+%intersectieT- drum prioritar la stanga
+test8 -> intersectieT & drum_prioritar_stanga & ntr_regimP & masina1_st & masina2_st & masina3_inainte. % prioritate1 => prioritate2 => prioritate3
+
+%intersectie+ - drum prioritar la stanga
+test9 -> intersectieX & drum_prioritar_stanga & ntr_regimP & masina1_st & masina2_st & masina3_inainte & masina4_st. % prioritate1 => prioritate2 => prioritate3 => prioritate4
+
+%intersectie + - drum prioritar inainte
+test10 -> intersectieX & drum_prioritar_inainte & ntr_regimP & masina1_st & masina2_inainte & masina3_dr & masina4_st. % prioritate3 => prioritate1 => prioritate2 => prioritate4
+
+
+test10.
+
